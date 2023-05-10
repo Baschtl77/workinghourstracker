@@ -1,4 +1,0 @@
-Pause,0,0,0
-Workinghour tracker,0,0,0
-COSPD Tests,0,0,0
-COSPD Schulungen,0,0,0
