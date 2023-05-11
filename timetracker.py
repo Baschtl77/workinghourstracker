@@ -20,6 +20,7 @@ class WorkingHoursTracker:
         self.action_buttons = []
         self.total_labels = []
         self.reset_buttons = []
+        self.remove_buttons = []
 
         self.start_icon = self.resize_icon("images/start_icon.png", 0.25)
         self.stop_icon = self.resize_icon("images/stop_icon.png", 0.25)
@@ -33,7 +34,6 @@ class WorkingHoursTracker:
         # button to reset all timers
         self.reset_all_button = tk.Button(master, text="Reset All Trackers", command=self.reset_all_timers)
         self.reset_all_button.pack()
-
 
         # Load configuration from file
         self.load_configuration()
@@ -115,20 +115,26 @@ class WorkingHoursTracker:
         timer_entry.pack(side=tk.LEFT)
         self.timer_labels.append(timer_entry)
 
-        total_label = tk.Label(timer_frame, text="Total working time: {} hours {} minutes {} seconds".format(total_hours, total_minutes, total_seconds))
+        total_label = tk.Label(timer_frame, text=" {} hours {} minutes {} seconds".format(total_hours, total_minutes, total_seconds))
         total_label.pack(side=tk.LEFT)
         self.total_labels.append(total_label)
 
         reset_button = tk.Button(timer_frame, text="Reset Tracker", command=lambda index=len(self.timers): self.reset_timer(index))
         reset_button.pack(side=tk.LEFT)
         self.reset_buttons.append(reset_button)
+        
+        remove_button = tk.Button(timer_frame, text="Remove Tracker", command=lambda index=len(self.timers): self.remove_timer(timer_frame))
+        remove_button.pack(side=tk.LEFT)
+        self.remove_buttons.append(remove_button)
+        
 
         self.timers.append({
             "tracking": False,
             "start_time": None,
             "total_hours": total_hours,
             "total_minutes": total_minutes,
-            "total_seconds": total_seconds,            
+            "total_seconds": total_seconds,
+            "frame": timer_frame,          
         })
 
     def start_stop_timer(self, timer_index):
@@ -144,9 +150,6 @@ class WorkingHoursTracker:
                     elapsed_time = datetime.datetime.now() - timer["start_time"]
                     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
                     minutes, seconds = divmod(remainder, 60)
-                    #timer["total_hours"] += int(hours)
-                    #timer["total_minutes"] += int(minutes)
-                    #timer["total_seconds"] += int(seconds)
                     self.action_buttons[timer_index].config(image=self.start_icon)
                     self.total_labels[timer_index].config(text="Total working time: {} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
             else:
@@ -155,9 +158,6 @@ class WorkingHoursTracker:
                     elapsed_time = datetime.datetime.now() - timer["start_time"]
                     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
                     minutes, seconds = divmod(remainder, 60)
-                    #timer["total_hours"] += int(hours)
-                    #timer["total_minutes"] += int(minutes)
-                    #timer["total_seconds"] += int(seconds)
                     self.action_buttons[i].config(image=self.start_icon)
                     self.total_labels[i].config(text="Total working time: {} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
 
@@ -169,17 +169,29 @@ class WorkingHoursTracker:
         timer["total_seconds"] = 0
         self.total_labels[timer_index].config(text="Total working time: 0 hours 0 minutes 0 seconds")
     
+    # remove timer
+    def remove_timer(self, timer_frame):
+        print ("removing timer ", timer_frame ) 
+        i=0
+        for timer in self.timers:
+            if timer["frame"] == timer_frame:
+                timer_frame.destroy()
+                self.timers.remove(timer)
+                del self.timer_labels[i]
+                break
+            i+=1
+        self.save_configuration()
+        #self.load_configuration()
+    
     # reset all timers
     def reset_all_timers(self):
         for i in range(len(self.timers)):
             self.reset_timer(i)
 
     def update_elapsed_time(self):
-        print("Updating time" , datetime.datetime.now())
         for i, timer in enumerate(self.timers):
             if timer["tracking"]:
                 elapsed_time = datetime.datetime.now() - timer["start_time"]
-                print("elapsed time" , elapsed_time)
                 offset=datetime.timedelta(0,0,0)
                 if timer["total_hours"] != 0 or timer["total_minutes"] != 0 or timer["total_seconds"] != 0:
                     #values exist, so offset must be calculated and added to elapsed time
@@ -214,10 +226,9 @@ class WorkingHoursTracker:
 
             reset_button = self.reset_buttons[i]
             reset_button.pack(side=tk.LEFT)
-
-            # Update the elapsed time for each timer
-            #print(" self.update_elapsed_time(i)")
-            #self.update_elapsed_time()
+            
+            remove_button = self.remove_buttons[i]
+            remove_button.pack(side=tk.LEFT)
    
 
     def start(self):
