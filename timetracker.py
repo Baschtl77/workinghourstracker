@@ -4,10 +4,22 @@ requires module PIL ( pip install Pillow)
 '''
 import datetime
 import os
+import sys
+from pathlib import Path
 import tkinter as tk
 import tkinter.messagebox
 
 from PIL import ImageTk, Image
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = Path(__file__).parent.absolute()
+
+    return os.path.join(base_path, relative_path)
 
 class WorkingHoursTracker:
     def __init__(self, master):
@@ -22,8 +34,8 @@ class WorkingHoursTracker:
         self.reset_buttons = []
         self.remove_buttons = []
 
-        self.start_icon = self.resize_icon("images/start_icon.png", 0.25)
-        self.stop_icon = self.resize_icon("images/stop_icon.png", 0.25)
+        self.start_icon = self.resize_icon(resource_path("images/start_icon.png"), 0.25)
+        self.stop_icon = self.resize_icon(resource_path("images/stop_icon.png"), 0.25)
 
         # button to add another time-tracker
         self.add_timer_button = tk.Button(master, text="Add Tracker", command=self.add_timer)
