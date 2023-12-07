@@ -206,7 +206,7 @@ class WorkingHoursTracker:
                 timer["total_seconds"] = int(seconds)
 
                 #timer["start_time"] = datetime.datetime.now()
-                self.total_labels[i].config(text="{} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
+                self.total_labels[i].config(text="Total working time: {} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
         self.master.after(1000, self.update_elapsed_time)
 
 
