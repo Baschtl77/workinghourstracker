@@ -8,8 +8,12 @@ import sys
 from pathlib import Path
 import tkinter as tk
 import tkinter.messagebox
-
 from PIL import ImageTk, Image
+import logging
+from logging.config import fileConfig
+
+# Lade die Logging-Konfiguration aus der Datei
+fileConfig('logging_config.ini')
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -83,7 +87,7 @@ class WorkingHoursTracker:
 
 
     def save_configuration(self):
-        print("Saving configuration")
+        logging.info(f"Saving configuration")
         try:
             if not os.path.exists("config.txt"):
                 open("config.txt", "w").close()
@@ -150,7 +154,7 @@ class WorkingHoursTracker:
         })
 
     def start_stop_timer(self, timer_index):
-        print("Startstopping timer")
+        logging.info(f"Startstopping timer")
         for i, timer in enumerate(self.timers):
             if i == timer_index:
                 if not timer["tracking"]:
@@ -183,7 +187,7 @@ class WorkingHoursTracker:
     
     # remove timer
     def remove_timer(self, timer_frame):
-        print ("removing timer ", timer_frame ) 
+        logging.info(f"removing timer ", timer_frame ) 
         i=0
         for timer in self.timers:
             if timer["frame"] == timer_frame:
@@ -244,7 +248,7 @@ class WorkingHoursTracker:
    
 
     def start(self):
-        print("entering start(self)")
+        logging.info(f"entering start(self)")
         self.create_timer_widgets()
         self.update_elapsed_time()
         #self.master.after(1000, self.update_elapsed_time)
