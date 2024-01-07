@@ -1,3 +1,3 @@
 @echo off
 pip install -r requirements.txt
-pyinstaller --onefile --add-data "images;images" --icon "images\icon.ico" timetracker.py
+python -O -m PyInstaller --onefile --add-data "images;images" --icon "images\icon.ico" timetracker.py
