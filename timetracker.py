@@ -1,262 +1,265 @@
-'''
-Timetracker to track workinghours
-requires module PIL ( pip install Pillow)
-'''
-import datetime
-import os
 import sys
+import json
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QMessageBox
+from PyQt5.QtGui import QIcon, QRegExpValidator
+from PyQt5.QtCore import QRegExp, QTimer, pyqtSignal
+
+import os
 from pathlib import Path
-import tkinter as tk
-import tkinter.messagebox
 
-from PIL import ImageTk, Image
+CONFIG_FILE = "timetracker_config.json"
+class TimeTrackerApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.init_ui()
+        self.load_config()
+        self.adjust_window_size()  # Fenstergröße anpassen
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = Path(__file__).parent.absolute()
+    def init_ui(self):
+        self.main_layout = QVBoxLayout()
 
-    return os.path.join(base_path, relative_path)
+        # Timer list
+        self.timer_list = QListWidget()
+        self.main_layout.addWidget(self.timer_list)
 
-class WorkingHoursTracker:
-    def __init__(self, master):
-        self.master = master
-        master.title("Working Hours Tracker")
+        # Buttons
+        self.add_timer_button = QPushButton("Add New Timer")
+        self.add_timer_button.clicked.connect(self.add_timer)
+        self.main_layout.addWidget(self.add_timer_button)
 
-        self.timers = []
-        self.timer_frames = []
-        self.timer_labels = []
-        self.action_buttons = []
-        self.total_labels = []
-        self.reset_buttons = []
-        self.remove_buttons = []
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_config)
+        self.main_layout.addWidget(self.save_button)
 
-        self.start_icon = self.resize_icon(resource_path("images/start_icon.png"), 0.25)
-        self.stop_icon = self.resize_icon(resource_path("images/stop_icon.png"), 0.25)
+        self.setLayout(self.main_layout)
+        self.setWindowTitle("Working Hours Tracker")
 
-        # button to add another time-tracker
-        self.add_timer_button = tk.Button(master, text="Add Tracker", command=self.add_timer)
-        self.add_timer_button.pack()
-        # button to save the current confugration
-        self.save_button = tk.Button(master, text="Save Configuration", command=self.save_configuration)
-        self.save_button.pack()
-        # button to reset all timers
-        self.reset_all_button = tk.Button(master, text="Reset All Trackers", command=self.reset_all_timers)
-        self.reset_all_button.pack()
+    def add_timer(self, name="New Timer", hours="00", minutes="00", seconds="00", running=False):
+        """Adds a new timer with the specified values."""
 
-        # Load configuration from file
-        self.load_configuration()
-        
-    
-    # method to resize icons
-    def resize_icon(self, filename, scale):
-        image = Image.open(filename)
-        width = int(image.width * scale)
-        height = int(image.height * scale)
-        resized_image = image.resize((width, height))
-        return ImageTk.PhotoImage(resized_image)
-
-    def load_configuration(self):
-        if not os.path.exists("config.txt"):
-            self.show_message("Config file not found. Starting with default configuration.")
-            return
-
-        try:
-            with open("config.txt", "r") as file:
-                lines = file.readlines()
-                for line in lines:
-                    if  line.strip() != "":
-                        timer_info = line.strip().split(",")
-                        if len(timer_info) >= 4:
-                            timer_label = timer_info[0]
-                            total_hours = int(timer_info[1])
-                            total_minutes = int(timer_info[2])
-                            total_seconds = int(timer_info[3])
-                            self.add_timer(timer_label, total_hours, total_minutes, total_seconds)
-                        else:
-                            self.add_timer(timer_info[0])
-        except FileNotFoundError:
-            self.show_message("Config file not found. Starting with default configuration.")
+        if not name:
+            name =""
 
 
-    def save_configuration(self):
-        print("Saving configuration")
-        try:
-            if not os.path.exists("config.txt"):
-                open("config.txt", "w").close()
+        timer_item = TimerItem(str(name), str(hours), str(minutes), str(seconds), running)
+        timer_item.timer_started.connect(self.stop_all_other_timers)  # Signal verbinden
+        timer_item.timer_removed.connect(lambda: self.remove_timer_from_list(timer_item))  # Signal verbinden
+        list_item = QListWidgetItem()
+        list_item.setSizeHint(timer_item.sizeHint())
 
-            with open("config.txt", "w") as f:
-                for i, timer_label in enumerate(self.timer_labels):
-                    label_text = timer_label.get()
-                    total_hours = self.timers[i]["total_hours"]
-                    total_minutes = self.timers[i]["total_minutes"]
-                    total_seconds = self.timers[i]["total_seconds"]
-                    f.write(f"{label_text},{total_hours},{total_minutes},{total_seconds}\n")
-
-            self.show_message("Configuration saved successfully!")
-        except Exception as e:
-            error_message = "An error occurred while saving the configuration:\n{}".format(str(e))
-            self.show_message(error_message)
-            
-            
-    def save_configuration_and_quit(self):
-        self.save_configuration()
-        root.after(2000, root.destroy)
-         
-
-    def show_message(self, message):
-       tkinter.messagebox.showinfo("Message", message,)
-
-    def add_timer(self, timer_label=None, total_hours=0, total_minutes=0, total_seconds=0):
-        timer_frame = tk.Frame(self.master)
-        timer_frame.pack()
-
-        action_button = tk.Button(timer_frame, image=self.start_icon, command=lambda index=len(self.timers): self.start_stop_timer(index))
-        action_button.pack(side=tk.LEFT)
-        self.action_buttons.append(action_button)
-
-        if timer_label:
-            entry_text = tk.StringVar(value=timer_label)
-        else:
-            entry_text = tk.StringVar()
-
-        timer_entry = tk.Entry(timer_frame, textvariable=entry_text)
-        timer_entry.pack(side=tk.LEFT)
-        self.timer_labels.append(timer_entry)
-
-        total_label = tk.Label(timer_frame, text=" {} hours {} minutes {} seconds".format(total_hours, total_minutes, total_seconds))
-        total_label.pack(side=tk.LEFT)
-        self.total_labels.append(total_label)
-
-        reset_button = tk.Button(timer_frame, text="Reset Tracker", command=lambda index=len(self.timers): self.reset_timer(index))
-        reset_button.pack(side=tk.LEFT)
-        self.reset_buttons.append(reset_button)
-        
-        remove_button = tk.Button(timer_frame, text="Remove Tracker", command=lambda index=len(self.timers): self.remove_timer(timer_frame))
-        remove_button.pack(side=tk.LEFT)
-        self.remove_buttons.append(remove_button)
-        
-
-        self.timers.append({
-            "tracking": False,
-            "start_time": None,
-            "total_hours": total_hours,
-            "total_minutes": total_minutes,
-            "total_seconds": total_seconds,
-            "frame": timer_frame,          
-        })
-
-    def start_stop_timer(self, timer_index):
-        print("Startstopping timer")
-        for i, timer in enumerate(self.timers):
-            if i == timer_index:
-                if not timer["tracking"]:
-                    timer["tracking"] = True
-                    timer["start_time"] = datetime.datetime.now()
-                    self.action_buttons[timer_index].config(image=self.stop_icon)
-                else:
-                    timer["tracking"] = False
-                    elapsed_time = datetime.datetime.now() - timer["start_time"]
-                    hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    self.action_buttons[timer_index].config(image=self.start_icon)
-                    self.total_labels[timer_index].config(text="{} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
-            else:
-                if timer["tracking"]:
-                    timer["tracking"] = False
-                    elapsed_time = datetime.datetime.now() - timer["start_time"]
-                    hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    self.action_buttons[i].config(image=self.start_icon)
-                    self.total_labels[i].config(text="{} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
-
-    # reset timer
-    def reset_timer(self, timer_index):
-        timer = self.timers[timer_index]
-        timer["total_hours"] = 0
-        timer["total_minutes"] = 0
-        timer["total_seconds"] = 0
-        self.total_labels[timer_index].config(text="0 hours 0 minutes 0 seconds")
-    
-    # remove timer
-    def remove_timer(self, timer_frame):
-        print ("removing timer ", timer_frame ) 
-        i=0
-        for timer in self.timers:
-            if timer["frame"] == timer_frame:
-                timer_frame.destroy()
-                self.timers.remove(timer)
-                del self.timer_labels[i]
+        self.timer_list.addItem(list_item)
+        self.timer_list.setItemWidget(list_item, timer_item)
+    def remove_timer_from_list(self, timer_item):
+        """Removes the timer from the list."""
+        for i in range(self.timer_list.count()):
+            item = self.timer_list.item(i)
+            widget = self.timer_list.itemWidget(item)
+            if widget == timer_item:
+                self.timer_list.takeItem(i)
                 break
-            i+=1
-        self.save_configuration()
-        #self.load_configuration()
+    def stop_all_other_timers(self, active_timer):
+        """Stops all timers except the one that was just started."""
+        for i in range(self.timer_list.count()):
+            item = self.timer_list.item(i)
+            widget = self.timer_list.itemWidget(item)
+            if widget != active_timer and widget.running:
+                widget.toggle_timer()  # Timer stoppen
+
+    def save_config(self):
+        """Saves the current timer configuration to a JSON file."""
+        config = []
+        for i in range(self.timer_list.count()):
+            item = self.timer_list.item(i)
+            widget = self.timer_list.itemWidget(item)
+            config.append(widget.get_timer_data())
+
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=4)
+        print("Configuration saved.")
+
+    def load_config(self):
+        """Loads the timer configuration from a JSON file."""
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+                for timer in config:
+                    self.add_timer(
+                        name=str(timer.get("name", "New Timer")),
+                        hours=str(timer.get("hours", "00")),
+                        minutes=str(timer.get("minutes", "00")),
+                        seconds=str(timer.get("seconds", "00")),
+                        running=timer.get("running", False)
+                    )
+            print("Configuration loaded.")
+        except FileNotFoundError:
+            print("No saved configuration found.")
+
+    def closeEvent(self, event):
+        """Automatically saves configuration when closing."""
+        self.save_config()
+        event.accept()
     
-    # reset all timers
-    def reset_all_timers(self):
-        for i in range(len(self.timers)):
-            self.reset_timer(i)
+    def adjust_window_size(self):
+        """Adjust the window size to fit all timers."""
+        base_height = 200  # Höhe für Header und Buttons
+        timer_height = 80  # Höhe eines einzelnen Timer-Items
+        maxtimercount = 10
+        timercount = maxtimercount
+        if timercount > self.timer_list.count():
+            timercount = self.timer_list.count()
+        total_height = base_height + timercount * timer_height
 
-    def update_elapsed_time(self):
-        for i, timer in enumerate(self.timers):
-            if timer["tracking"]:
-                elapsed_time = datetime.datetime.now() - timer["start_time"]
-                offset=datetime.timedelta(0,0,0)
-                if timer["total_hours"] != 0 or timer["total_minutes"] != 0 or timer["total_seconds"] != 0:
-                    #values exist, so offset must be calculated and added to elapsed time
-                    offset = datetime.timedelta(hours=timer["total_hours"],minutes=timer["total_minutes"],seconds=timer["total_seconds"])
-                    timer["start_time"] = datetime.datetime.now()
-                elapsed_time+=offset
-                hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
-                minutes, seconds = divmod(remainder, 60)
-                                
-                timer["total_hours"] = int(hours)
-                timer["total_minutes"] = int(minutes)
-                timer["total_seconds"] = int(seconds)
+        # Begrenzungen für das Fenster
+        max_height = 800
+        min_height = 400
+        adjusted_height = max(min(total_height, max_height), min_height)
 
-                #timer["start_time"] = datetime.datetime.now()
-                self.total_labels[i].config(text="{} hours {} minutes {} seconds".format(timer["total_hours"], timer["total_minutes"], timer["total_seconds"]))
-        self.master.after(1000, self.update_elapsed_time)
+        self.resize(870, adjusted_height)
 
+class TimerItem(QWidget):
+    timer_started = pyqtSignal(object)  # Signal, das bei Timer-Start gesendet wird
+    timer_removed = pyqtSignal()  # Signal für das Entfernen des Timers
+    def __init__(self, name="New Timer", hours="00", minutes="00", seconds="00", running=False):
+        super().__init__()
+        self.init_ui(name, hours, minutes, seconds, running)
 
-    def create_timer_widgets(self):
-        for i, timer in enumerate(self.timers):
-            timer_frame = tk.Frame(self.master)
-            timer_frame.pack()
+    def init_ui(self, name, hours, minutes, seconds, running):
+        layout = QHBoxLayout()
 
-            timer_label = self.timer_labels[i]
-            timer_label.pack(side=tk.LEFT)
+        self.name_input = QLineEdit(name)
+        self.name_input.setFixedSize(180, 25)  # Optional: Größe anpassen
 
-            action_button = self.action_buttons[i]
-            action_button.pack(side=tk.LEFT)
+        # Input fields for hours, minutes, seconds
+        self.hours_input = QLineEdit(hours)
+        self.hours_input.setFixedSize(40, 25)
+        self.minutes_input = QLineEdit(minutes)
+        self.minutes_input.setFixedSize(40, 25)
+        self.seconds_input = QLineEdit(seconds)
+        self.seconds_input.setFixedSize(40, 25)
 
-            total_label = self.total_labels[i]
-            total_label.pack(side=tk.LEFT)
+        # Validator for input fields (max 3 characters)
+        time_validator = QRegExpValidator(QRegExp(r"^\d{1,3}$"))
+        self.hours_input.setValidator(time_validator)
+        self.minutes_input.setValidator(time_validator)
+        self.seconds_input.setValidator(time_validator)
 
-            reset_button = self.reset_buttons[i]
-            reset_button.pack(side=tk.LEFT)
-            
-            remove_button = self.remove_buttons[i]
-            remove_button.pack(side=tk.LEFT)
-   
-
-    def start(self):
-        print("entering start(self)")
-        self.create_timer_widgets()
-        self.update_elapsed_time()
-        #self.master.after(1000, self.update_elapsed_time)
-        # Save configuration before closing
-        self.master.protocol("WM_DELETE_WINDOW", self.save_configuration_and_quit)
+        # Start/Stop button with icons
+        self.start_stop_button = QPushButton()
         
+        
+        self.start_icon = QIcon("images/start_icon.png")
+        self.stop_icon = QIcon("images/stop_icon.png")
+
+        #self.start_icon = QIcon(self.resource_path("images/start_icon.png"))
+        #self.stop_icon = QIcon(self.resource_path("images/stop_icon.png"))
+
+        #self.start_icon = self.resize_icon(resource_path("images/start_icon.png"), 0.25)
+        #self.stop_icon = self.resize_icon(resource_path("images/stop_icon.png"), 0.25)
 
 
+
+
+
+
+        self.start_stop_button.setIcon(self.start_icon if not running else self.stop_icon)
+        self.start_stop_button.setFixedSize(60, 60)  # Button-Größe setzen
+        self.start_stop_button.setIconSize(self.start_stop_button.size())  # Icon auf Button-Größe skalieren
+        self.start_stop_button.clicked.connect(self.toggle_timer)
+
+        # Remove button
+        self.remove_button = QPushButton("Remove")
+        self.remove_button.clicked.connect(self.remove_timer)
+
+        # Timer logic
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_time)
+        self.running = running
+        if running:
+            self.timer.start(1000)
+
+        # Assemble layout
+        layout.addWidget(self.start_stop_button)
+        layout.addWidget(QLabel("Name:"))
+        layout.addWidget(self.name_input)
+        layout.addWidget(QLabel("Hours:"))
+        layout.addWidget(self.hours_input)
+        layout.addWidget(QLabel("Minutes:"))
+        layout.addWidget(self.minutes_input)
+        layout.addWidget(QLabel("Seconds:"))
+        layout.addWidget(self.seconds_input)
+        
+        layout.addWidget(self.remove_button)
+
+        self.setLayout(layout)
+
+    def toggle_timer(self):
+        """Starts or stops the timer."""
+        if self.running:
+            self.timer.stop()
+            self.start_stop_button.setIcon(self.start_icon)
+        else:
+            self.timer_started.emit(self)  # Signal an Hauptanwendung senden
+            self.timer.start(1000)
+            self.start_stop_button.setIcon(self.stop_icon)
+        self.running = not self.running
+
+    def update_time(self):
+        """Updates the time based on input fields."""
+        hours = int(self.hours_input.text())
+        minutes = int(self.minutes_input.text())
+        seconds = int(self.seconds_input.text())
+
+        # Increment time
+        seconds += 1
+        if seconds >= 60:
+            seconds = 0
+            minutes += 1
+        if minutes >= 60:
+            minutes = 0
+            hours += 1
+
+        # Display updated time
+        self.hours_input.setText(f"{hours:02}")
+        self.minutes_input.setText(f"{minutes:02}")
+        self.seconds_input.setText(f"{seconds:02}")
+
+    def remove_timer(self):
+        """Displays a confirmation popup before removing the timer."""
+        reply = QMessageBox.question(self, "Confirm Deletion", "Really want to delete the Timer?",
+                                     QMessageBox.Yes | QMessageBox.Abort, QMessageBox.Abort)
+        
+        if reply == QMessageBox.Yes:
+            self.timer_removed.emit()  # Signal an die Hauptanwendung senden, um den Timer zu entfernen
+
+    def get_timer_data(self):
+        """Returns the current timer data."""
+        return {
+            "name": self.name_input.text(),
+            "hours": self.hours_input.text(),
+            "minutes": self.minutes_input.text(),
+            "seconds": self.seconds_input.text(),
+            "running": self.running
+        }
+    def resource_path_Noori(relative_path):
+        """ Get absolute path to resource, works for dev and for PyInstaller """
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = Path(__file__).parent.absolute()
+
+    def resource_path(relative_path):
+        """ Get absolute path to resource, works for dev and for PyInstaller """
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = Path(__file__).parent.absolute()
+
+        return os.path.join(base_path, relative_path)
 
 if __name__ == "__main__":
-    print("if __name__ == __main__:")
-    root = tk.Tk()
-    tracker = WorkingHoursTracker(root)
-    tracker.start()
-    root.mainloop()
+    app = QApplication(sys.argv)
+    tracker = TimeTrackerApp()
+    tracker.show()
+    sys.exit(app.exec_())
