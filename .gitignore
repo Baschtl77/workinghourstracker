@@ -161,3 +161,4 @@ cython_debug/
 
 ### Own ignores ###
 config.txt
+timetracker_config.json

@@ -8,6 +8,14 @@ import os
 from pathlib import Path
 
 CONFIG_FILE = "timetracker_config.json"
+
+def resource_path(relative_path):
+    """ Holt den absoluten Pfad für Ressourcen, unabhängig davon, ob das Skript gepackt ist. """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    else:
+        return os.path.join(os.path.abspath("."), relative_path)
+    
 class TimeTrackerApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -76,6 +84,7 @@ class TimeTrackerApp(QWidget):
         with open(CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=4)
         print("Configuration saved.")
+        self.show_confirmation_popup("Configuration saved.")
 
     def load_config(self):
         """Loads the timer configuration from a JSON file."""
@@ -115,6 +124,22 @@ class TimeTrackerApp(QWidget):
         adjusted_height = max(min(total_height, max_height), min_height)
 
         self.resize(870, adjusted_height)
+    def show_confirmation_popup(self, message="Speichern erfolgreich!"):
+        # Erstellt eine Nachricht mit einem OK-Button
+        popup = QMessageBox()
+        popup.setIcon(QMessageBox.Information)
+        popup.setWindowTitle("Bestätigung")
+        popup.setText(message)
+        popup.setStandardButtons(QMessageBox.Ok)
+
+        # QTimer einrichten, um das Popup nach 1 Sekunden zu schließen
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(popup.accept)  # Schließt das Popup
+        timer.start(1000)  # 1000 Millisekunden = 1 Sekunden
+
+        # Zeigt das Popup an und wartet auf Nutzerinteraktion oder Timeout
+        popup.exec_()
 
 class TimerItem(QWidget):
     timer_started = pyqtSignal(object)  # Signal, das bei Timer-Start gesendet wird
@@ -145,21 +170,9 @@ class TimerItem(QWidget):
 
         # Start/Stop button with icons
         self.start_stop_button = QPushButton()
-        
-        
-        self.start_icon = QIcon("images/start_icon.png")
-        self.stop_icon = QIcon("images/stop_icon.png")
 
-        #self.start_icon = QIcon(self.resource_path("images/start_icon.png"))
-        #self.stop_icon = QIcon(self.resource_path("images/stop_icon.png"))
-
-        #self.start_icon = self.resize_icon(resource_path("images/start_icon.png"), 0.25)
-        #self.stop_icon = self.resize_icon(resource_path("images/stop_icon.png"), 0.25)
-
-
-
-
-
+        self.start_icon = QIcon(resource_path("images/start_icon.png"))
+        self.stop_icon = QIcon(resource_path("images/stop_icon.png"))
 
         self.start_stop_button.setIcon(self.start_icon if not running else self.stop_icon)
         self.start_stop_button.setFixedSize(60, 60)  # Button-Größe setzen
@@ -205,23 +218,24 @@ class TimerItem(QWidget):
 
     def update_time(self):
         """Updates the time based on input fields."""
-        hours = int(self.hours_input.text())
-        minutes = int(self.minutes_input.text())
-        seconds = int(self.seconds_input.text())
+        if (len(self.hours_input.text()) > 0 and len(self.minutes_input.text()) > 0 and len(self.seconds_input.text()) > 0):
+            hours = int(self.hours_input.text())
+            minutes = int(self.minutes_input.text())
+            seconds = int(self.seconds_input.text())
 
-        # Increment time
-        seconds += 1
-        if seconds >= 60:
-            seconds = 0
-            minutes += 1
-        if minutes >= 60:
-            minutes = 0
-            hours += 1
+            # Increment time
+            seconds += 1
+            if seconds >= 60:
+                seconds = 0
+                minutes += 1
+            if minutes >= 60:
+                minutes = 0
+                hours += 1
 
-        # Display updated time
-        self.hours_input.setText(f"{hours:02}")
-        self.minutes_input.setText(f"{minutes:02}")
-        self.seconds_input.setText(f"{seconds:02}")
+            # Display updated time
+            self.hours_input.setText(f"{hours:02}")
+            self.minutes_input.setText(f"{minutes:02}")
+            self.seconds_input.setText(f"{seconds:02}")
 
     def remove_timer(self):
         """Displays a confirmation popup before removing the timer."""
@@ -248,15 +262,6 @@ class TimerItem(QWidget):
         except Exception:
             base_path = Path(__file__).parent.absolute()
 
-    def resource_path(relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
-        try:
-            # PyInstaller creates a temp folder and stores path in _MEIPASS
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = Path(__file__).parent.absolute()
-
-        return os.path.join(base_path, relative_path)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
