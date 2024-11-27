@@ -39,6 +39,10 @@ class TimeTrackerApp(QWidget):
         self.save_button.clicked.connect(self.save_config)
         self.main_layout.addWidget(self.save_button)
 
+        self.reset_all_button = QPushButton("Reset all timers")
+        self.reset_all_button.clicked.connect(self.reset_all_timers)
+        self.main_layout.addWidget(self.reset_all_button)
+
         self.setLayout(self.main_layout)
         self.setWindowTitle("Working Hours Tracker")
 
@@ -72,6 +76,17 @@ class TimeTrackerApp(QWidget):
             widget = self.timer_list.itemWidget(item)
             if widget != active_timer and widget.running:
                 widget.toggle_timer()  # Timer stoppen
+
+    def reset_all_timers(self):
+        """Resets all timers"""
+        reply = QMessageBox.question(self, "Confirm reset all timers", "Really want to reset all the Timers?",
+                                     QMessageBox.Yes | QMessageBox.Abort, QMessageBox.Abort)
+        
+        if reply == QMessageBox.Yes:
+            for i in range(self.timer_list.count()):
+                item = self.timer_list.item(i)
+                widget = self.timer_list.itemWidget(item)
+                widget.reset_timer() # Timer resetten
 
     def save_config(self):
         """Saves the current timer configuration to a JSON file."""
@@ -124,6 +139,7 @@ class TimeTrackerApp(QWidget):
         adjusted_height = max(min(total_height, max_height), min_height)
 
         self.resize(870, adjusted_height)
+    
     def show_confirmation_popup(self, message="Speichern erfolgreich!"):
         # Erstellt eine Nachricht mit einem OK-Button
         popup = QMessageBox()
@@ -183,6 +199,10 @@ class TimerItem(QWidget):
         self.remove_button = QPushButton("Remove")
         self.remove_button.clicked.connect(self.remove_timer)
 
+        # Reset Button
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.clicked.connect(self.reset_timer_click)
+
         # Timer logic
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
@@ -194,14 +214,13 @@ class TimerItem(QWidget):
         layout.addWidget(self.start_stop_button)
         layout.addWidget(QLabel("Name:"))
         layout.addWidget(self.name_input)
-        layout.addWidget(QLabel("Hours:"))
+        layout.addWidget(QLabel("Time (hh,mm,ss):"))
         layout.addWidget(self.hours_input)
-        layout.addWidget(QLabel("Minutes:"))
         layout.addWidget(self.minutes_input)
-        layout.addWidget(QLabel("Seconds:"))
         layout.addWidget(self.seconds_input)
         
         layout.addWidget(self.remove_button)
+        layout.addWidget(self.reset_button)
 
         self.setLayout(layout)
 
@@ -245,6 +264,25 @@ class TimerItem(QWidget):
         if reply == QMessageBox.Yes:
             self.timer_removed.emit()  # Signal an die Hauptanwendung senden, um den Timer zu entfernen
 
+    
+    def reset_timer_click(self):
+        """Reset the timer to 00:00:00"""
+        reply = QMessageBox.question(self, "Confirm Reset", "Really want to reset the Timer?",
+                                     QMessageBox.Yes | QMessageBox.Abort, QMessageBox.Abort)
+        if reply == QMessageBox.Yes:
+            self.reset_timer()
+    
+    def reset_timer(self):
+            print("Resetting timer")
+            hours = 0
+            minutes = 0
+            seconds = 0
+
+            # Display updated time
+            self.hours_input.setText(f"{hours:02}")
+            self.minutes_input.setText(f"{minutes:02}")
+            self.seconds_input.setText(f"{seconds:02}")
+
     def get_timer_data(self):
         """Returns the current timer data."""
         return {
@@ -254,14 +292,6 @@ class TimerItem(QWidget):
             "seconds": self.seconds_input.text(),
             "running": self.running
         }
-    def resource_path_Noori(relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
-        try:
-            # PyInstaller creates a temp folder and stores path in _MEIPASS
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = Path(__file__).parent.absolute()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
