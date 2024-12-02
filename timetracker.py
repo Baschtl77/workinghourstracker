@@ -2,7 +2,8 @@ import sys
 import json
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QMessageBox
 from PyQt5.QtGui import QIcon, QRegExpValidator
-from PyQt5.QtCore import QRegExp, QTimer, pyqtSignal
+from PyQt5.QtCore import QRegExp, QTimer, pyqtSignal, Qt
+
 
 import os
 from pathlib import Path
@@ -22,9 +23,22 @@ class TimeTrackerApp(QWidget):
         self.init_ui()
         self.load_config()
         self.adjust_window_size()  # Fenstergröße anpassen
+        self.start_timer() # starte das aktualiseren der aufaddierten Timer-Zeiten
 
     def init_ui(self):
         self.main_layout = QVBoxLayout()
+
+        # Sum of all timers
+        # Horizontales Layout für die Total Time
+        time_layout = QHBoxLayout()
+        self.total_time_label = QLabel("Total Time: 0 hours 0 minutes 0 seconds", self)
+
+        # Rechtsbündige Ausrichtung
+        time_layout.addStretch()  # Leerer Platz davor
+        time_layout.addWidget(self.total_time_label, alignment=Qt.AlignRight)
+
+        self.main_layout.addLayout(time_layout)
+        self.setLayout(self.main_layout)
 
         # Timer list
         self.timer_list = QListWidget()
@@ -32,7 +46,7 @@ class TimeTrackerApp(QWidget):
         self.timer_list.setDropIndicatorShown(True)  # Zeigt den Drop-Indikator an
         # Setze Drag-and-Drop auf `QListWidgetItem`
         self.timer_list.setDragDropMode(QListWidget.InternalMove)
-        
+
         self.main_layout.addWidget(self.timer_list)
 
         # Buttons
@@ -50,13 +64,15 @@ class TimeTrackerApp(QWidget):
 
         self.setLayout(self.main_layout)
         self.setWindowTitle("Working Hours Tracker")
+        
+        # Aktualisiere die Gesamtzeit anfangs
+        self.update_total_time()
 
     def add_timer(self, name="New Timer", hours="00", minutes="00", seconds="00", running=False):
         """Adds a new timer with the specified values."""
 
         if not name:
             name =""
-
 
         timer_item = TimerItem(str(name), str(hours), str(minutes), str(seconds), running)
         timer_item.timer_started.connect(self.stop_all_other_timers)  # Signal verbinden
@@ -161,6 +177,32 @@ class TimeTrackerApp(QWidget):
 
         # Zeigt das Popup an und wartet auf Nutzerinteraktion oder Timeout
         popup.exec_()
+
+    def update_total_time(self):
+        total_seconds = 0
+
+        # Iteriere über alle Listeneinträge in self.timer_list
+        for index in range(self.timer_list.count()):
+            list_item = self.timer_list.item(index)  # QListWidgetItem abrufen
+            timer_item = self.timer_list.itemWidget(list_item)  # TimerItem abrufen
+            
+            # Gesamtsekunden von jedem TimerItem addieren
+            if timer_item:  # Sicherstellen, dass das Widget existiert
+                total_seconds += timer_item.get_total_seconds()
+
+        # Berechne die Gesamtzeit in Stunden, Minuten und Sekunden
+        total_hours = total_seconds // 3600
+        total_minutes = (total_seconds % 3600) // 60
+        total_seconds = total_seconds % 60
+
+        # Zeige die Gesamtzeit an
+        self.total_time_label.setText(f"Total Time: {total_hours} hours {total_minutes} minutes {total_seconds} seconds")
+
+    def start_timer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_total_time)  # Timer mit update-Methode verbinden
+        self.timer.start(1000)  # Alle 1000ms (1 Sekunde) ausführen
+
 
 class TimerItem(QWidget):
     timer_started = pyqtSignal(object)  # Signal, das bei Timer-Start gesendet wird
@@ -278,15 +320,15 @@ class TimerItem(QWidget):
             self.reset_timer()
     
     def reset_timer(self):
-            print("Resetting timer")
-            hours = 0
-            minutes = 0
-            seconds = 0
+        print("Resetting timer")
+        hours = 0
+        minutes = 0
+        seconds = 0
 
-            # Display updated time
-            self.hours_input.setText(f"{hours:02}")
-            self.minutes_input.setText(f"{minutes:02}")
-            self.seconds_input.setText(f"{seconds:02}")
+        # Display updated time
+        self.hours_input.setText(f"{hours:02}")
+        self.minutes_input.setText(f"{minutes:02}")
+        self.seconds_input.setText(f"{seconds:02}")
 
     def get_timer_data(self):
         """Returns the current timer data."""
@@ -297,6 +339,19 @@ class TimerItem(QWidget):
             "seconds": self.seconds_input.text(),
             "running": self.running
         }
+    def get_total_seconds(self):
+        hours = 0
+        minutes = 0
+        seconds = 0
+
+        if len(self.hours_input.text()) > 0 :
+            hours= int(self.hours_input.text())
+        if  len(self.minutes_input.text()) > 0:
+            minutes = int(self.minutes_input.text())
+        if len(self.seconds_input.text()) > 0:
+            seconds = int(self.seconds_input.text())
+
+        return hours * 3600 + minutes * 60 + seconds
     
 class DraggableWidget(QLabel):
     def __init__(self, text, parent=None):
