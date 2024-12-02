@@ -28,6 +28,11 @@ class TimeTrackerApp(QWidget):
 
         # Timer list
         self.timer_list = QListWidget()
+        self.timer_list.setDragEnabled(True)  # Aktiviert das Dragging für das gesamte Widget
+        self.timer_list.setDropIndicatorShown(True)  # Zeigt den Drop-Indikator an
+        # Setze Drag-and-Drop auf `QListWidgetItem`
+        self.timer_list.setDragDropMode(QListWidget.InternalMove)
+        
         self.main_layout.addWidget(self.timer_list)
 
         # Buttons
@@ -292,6 +297,33 @@ class TimerItem(QWidget):
             "seconds": self.seconds_input.text(),
             "running": self.running
         }
+    
+class DraggableWidget(QLabel):
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setStyleSheet("background-color: lightblue; padding: 10px;")
+        self._drag_pos = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag_pos = event.pos()
+
+    def mouseMoveEvent(self, event):
+        if self._drag_pos is not None:
+            new_pos = self.mapToParent(event.pos() - self._drag_pos)
+            self.move(new_pos)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag_pos = None
+            self.snap_to_grid()
+
+    def snap_to_grid(self):
+        grid_size = 20  # Größe des Rasters in Pixeln
+        current_pos = self.pos()
+        snapped_x = round(current_pos.x() / grid_size) * grid_size
+        snapped_y = round(current_pos.y() / grid_size) * grid_size
+        self.move(snapped_x, snapped_y)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
