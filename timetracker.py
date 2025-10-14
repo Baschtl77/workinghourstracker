@@ -2,7 +2,8 @@ import sys
 import json
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QMessageBox
 from PyQt5.QtGui import QIcon, QRegExpValidator
-from PyQt5.QtCore import QRegExp, QTimer, pyqtSignal, Qt
+from PyQt5.QtCore import QRegExp, QTimer, pyqtSignal, Qt, QSize
+
 
 
 import os
@@ -213,17 +214,22 @@ class TimerItem(QWidget):
 
     def init_ui(self, name, hours, minutes, seconds, running):
         layout = QHBoxLayout()
+        scale = int (app.primaryScreen().logicalDotsPerInch() / 96)  # 96 DPI = Referenz
 
         self.name_input = QLineEdit(name)
-        self.name_input.setFixedSize(180, 25)  # Optional: Größe anpassen
+        self.name_input.setPlaceholderText("Timer Name")
+        self.name_input.setFixedSize(QSize(180 * scale, 25 * scale))  # Optional: Größe anpassen
 
         # Input fields for hours, minutes, seconds
         self.hours_input = QLineEdit(hours)
-        self.hours_input.setFixedSize(40, 25)
+        self.hours_input.setPlaceholderText("hh")
+        self.hours_input.setFixedSize(QSize(40 * scale, 25 * scale))
         self.minutes_input = QLineEdit(minutes)
-        self.minutes_input.setFixedSize(40, 25)
+        self.minutes_input.setPlaceholderText("mm")
+        self.minutes_input.setFixedSize(QSize(40 * scale, 25 * scale))
         self.seconds_input = QLineEdit(seconds)
-        self.seconds_input.setFixedSize(40, 25)
+        self.seconds_input.setPlaceholderText("ss")
+        self.seconds_input.setFixedSize(QSize(40 * scale, 25 * scale))
 
         # Validator for input fields (max 3 characters)
         time_validator = QRegExpValidator(QRegExp(r"^\d{1,3}$"))
@@ -259,7 +265,7 @@ class TimerItem(QWidget):
 
         # Assemble layout
         layout.addWidget(self.start_stop_button)
-        layout.addWidget(QLabel("Name:"))
+        # layout.addWidget(QLabel("Name:"))
         layout.addWidget(self.name_input)
         layout.addWidget(QLabel("Time (hh,mm,ss):"))
         layout.addWidget(self.hours_input)
@@ -344,14 +350,41 @@ class TimerItem(QWidget):
         minutes = 0
         seconds = 0
 
-        if len(self.hours_input.text()) > 0 :
+        if len(self.hours_input.text()) > 0 and self.is_number(self.hours_input.text()):
             hours= int(self.hours_input.text())
-        if  len(self.minutes_input.text()) > 0:
+        if  len(self.minutes_input.text()) > 0 and self.is_number(self.minutes_input.text()):
             minutes = int(self.minutes_input.text())
-        if len(self.seconds_input.text()) > 0:
+        if len(self.seconds_input.text()) > 0 and self.is_number(self.seconds_input.text()):
             seconds = int(self.seconds_input.text())
 
         return hours * 3600 + minutes * 60 + seconds
+    @staticmethod
+    def is_number(value):
+        """
+        Prüft, ob `value` eine Zahl ist.
+        Akzeptiert:
+        - int, float
+        - Strings, die Zahlen darstellen, z. B. "42", "00", "3.14"
+        
+        Gibt True zurück, wenn es eine Zahl ist, sonst False.
+        """
+        # 1. Bereits Zahl? int oder float
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return True
+
+        # 2. String prüfen
+        if isinstance(value, str):
+            value = value.strip()  # führende/abschließende Leerzeichen entfernen
+            if value == "":
+                return False
+            try:
+                float(value)  # float akzeptiert auch "00", "3.14", "-2.5"
+                return True
+            except ValueError:
+                return False
+
+        # Alles andere
+        return False
     
 class DraggableWidget(QLabel):
     def __init__(self, text, parent=None):
